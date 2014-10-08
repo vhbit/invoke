@@ -3,7 +3,7 @@ from os.path import join
 from types import DictType
 
 from .vendor.etcaetera.config import Config as EtcConfig
-from .vendor.etcaetera.adapter import File, Defaults, Overrides
+from .vendor.etcaetera.adapter import File, Defaults, Overrides, Env
 
 
 def noop(s):
@@ -140,8 +140,12 @@ class Config(DataProxy):
         Creates a new config object, but does not load any configuration data.
 
         .. note::
-            To load configuration data, call `~.Config.load` after
-            initialization.
+            To load configuration data from disk & the shell environment, you
+            will need to do the following::
+
+                config = Config()
+                c.load_env()
+                c.load()
 
         For convenience, keyword arguments not listed below will be interpreted
         as top-level default configuration values, so one may say e.g.::
@@ -184,12 +188,15 @@ class Config(DataProxy):
 
         .. _Adapters: http://etcaetera.readthedocs.org/en/0.4.0/howto.html#adapters
         """
+        # Kwargs
         adapters = kwargs.pop('adapters', None)
         global_prefix = kwargs.pop('global_prefix', '/etc/invoke')
         user_prefix = kwargs.pop('user_prefix', '~/.invoke')
         project_home = kwargs.pop('project_home', None)
         runtime_path = kwargs.pop('runtime_path', None)
-        c = EtcConfig(formatter=noop)
+        # Setup & initial defaults (if given)
+        self.config = EtcConfig(formatter=noop)
+        self.set_defaults(kwargs)
         # Explicit adapter set
         if adapters is not None:
             c.register(*adapters)
@@ -206,8 +213,9 @@ class Config(DataProxy):
                 c.register(File("{0}.json".format(prefix)))
                 py = File("{0}.py".format(prefix), python_uppercase=False)
                 c.register(py)
-            # Level 5: environment variables.
-            # TODO: this
+            # Level 5: environment variables, driven by keys defined higher up
+            wut
+            c.register(Env('FOO'))
             # Level 6: Runtime config file
             if runtime_path is not None:
                 # Give python_uppercase in case it's a .py. Is a safe no-op
@@ -215,9 +223,6 @@ class Config(DataProxy):
                 c.register(File(runtime_path, python_uppercase=False))
             # Level 7 is Overrides, typically runtime flag values set by client
             # using set_overrides().
-        # Init-time defaults
-        self.config = c
-        self.set_defaults(kwargs)
 
     def set_defaults(self, data):
         """
@@ -294,5 +299,7 @@ def _clone_adapter(old):
             python_uppercase=old.python_uppercase,
             formatter=old.formatter
         )
+    elif isinstance(old, Env):
+        new = Env()
     new.data = copy.deepcopy(old.data)
     return new

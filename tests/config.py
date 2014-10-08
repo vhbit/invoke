@@ -254,6 +254,7 @@ Valid keys: []""".lstrip()
             # FOO=bar
             c = Config(foo='notbar')
             os.environ['FOO'] = 'bar'
+            c.load_env()
             c.load()
             eq_(c.foo, 'bar')
 
